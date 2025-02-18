@@ -1,0 +1,59 @@
+type
+            u_sessenta_e_quatro
+            =
+u64
+
+
+
+
+                                                                    ;
+
+export                       fn
+
+                sum
+
+                (reg ptr u8[4]             a) -> reg 
+
+
+                u_sessenta_e_quatro   {
+
+reg bool zf ;
+                    inline int 
+
+/* This is a comment that will not be preserved by the formatter */
+
+                    i;
+
+                    reg u_sessenta_e_quatro r;                   ?{ zf },
+                    r =
+
+
+
+                    #set0(
+
+                    );
+
+                    reg                         u_sessenta_e_quatro
+                t;
+
+        for
+
+        i=
+
+0 to
+4
+{
+                                t = (64u) a[                                                    i];
+
+
+                r +=
+                                                    t
+    ;
+}
+
+                    return 
+
+
+    r;
+                }
+
