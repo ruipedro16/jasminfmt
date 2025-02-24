@@ -7,7 +7,13 @@ import re
 import subprocess
 import sys
 
-default_config = {"indent_size": 4, "split_fn_modifier": False}
+# Default config: if the config file does not specify a value, we use this
+default_config = {
+    "indent_size": 4,
+    "indent_style": "space",
+    "insert_final_newline": True,
+    "split_fn_modifier": False,
+}
 
 
 def parse_arguments():
@@ -16,7 +22,13 @@ def parse_arguments():
     parser.add_argument("-out", "--output", help="Output file")
     parser.add_argument("-config", "--config", help="Config file")
     parser.add_argument("-i", "--inplace", help="Format the file inplace")
+    parser.add_argument("-I", help="include path")
     return parser.parse_args()
+
+
+# TODO:
+def include_path_to_jasminpath_env(include_path: dict[str, str]) -> str:
+    raise NotImplementedError("This function is not implemented yet")
 
 
 def format(content):
@@ -34,6 +46,7 @@ def format(content):
     # Stuff like ?{ zf } gets translated by jasmin2tex to ?{zf
     # } (the ending } is on a new line)
     # This fixes it
+    # TODO: Fix this upstream (?)
     content = re.sub(
         r"\?\{(.*?)\}", lambda match: re.sub(r"\s+", " ", match.group(0)), content, flags=re.DOTALL
     )
@@ -82,13 +95,32 @@ elif args.output is not None:
 else:
     output_filename = None  # we print to sdtdout instead
 
-# TODO: Add the include paths
-result = subprocess.run(
-    ["jasmin2tex", input_filename, "-o", output_filename],
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.PIPE,
-    text=True,
-)
+# FIXME: TODO: Get this from the -I arg
+include_path = None
+
+if include_path is None:
+    result = subprocess.run(
+        ["jasmin2tex", input_filename, "-o", output_filename],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+else:
+    jasminpath_env = include_path_to_jasminpath_env(include_path)
+    result = subprocess.run(
+        [
+            f"JASMINPATH={jasminpath_env}",
+            "jasmin2tex",
+            input_filename,
+            "-o",
+            output_filename,
+            "-I",
+            jasminpath_env,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
 
 if result.returncode != 0:
     sys.stderr.write(f"jasmin2tex failed with return code {result.returncode}\n")

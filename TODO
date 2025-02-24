@@ -1,0 +1,12 @@
+- [X] `-I` for include paths --- This will (?) be deprecated in some next jasmin release  
+
+# Commits
+
+- Add support for include paths using `-I`
+
+
+- [ ] indent_style: Tab ou space. Based on https://editorconfig.org/
+- [ ] insert_final_newline. Default is true
+- [ ] Test with XMSS impl
+- [ ] Test with SPhincs+ impl
+- [ ] Test with all libjade
