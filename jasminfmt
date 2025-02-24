@@ -92,7 +92,8 @@ result = subprocess.run(
 if result.returncode != 0:
     sys.stderr.write(f"jasmin2tex failed with return code {result.returncode}\n")
     sys.stderr.write("=" * 100 + "\n")
-    sys.stderr.write(result.stderr)
+    if result.stderr is not None:
+        sys.stderr.write(result.stderr)
     sys.stderr.write("=" * 100 + "\n")
     sys.exit(1)
 
