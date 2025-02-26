@@ -6,8 +6,15 @@ import json
 import re
 import subprocess
 import sys
+import os
 
-default_config = {"indent_size": 4, "split_fn_modifier": False}
+# Default config: if the config file does not specify a value, we use this
+default_config = {
+    "indent_size": 4,
+    "indent_style": "space",
+    "insert_final_newline": True,
+    "split_fn_modifier": False,
+}
 
 
 def parse_arguments():
@@ -16,7 +23,26 @@ def parse_arguments():
     parser.add_argument("-out", "--output", help="Output file")
     parser.add_argument("-config", "--config", help="Config file")
     parser.add_argument("-i", "--inplace", help="Format the file inplace")
+    parser.add_argument("-I", help="include path", action="append")
     return parser.parse_args()
+
+
+def include_path_to_jasminpath_env(include_path: list[str]) -> str:
+    if include_path is None or len(include_path) == 0:
+        return ""
+
+    r = []
+
+    for i in include_path:
+        parts = i.split(":")
+        if len(parts) == 2:
+            r.append(f"{parts[0]}={parts[1]}")
+        else:
+            print(i)
+            print(parts)
+            # print pq -I ta provavelmente mal
+
+    return ":".join(r)
 
 
 def format(content):
@@ -34,6 +60,7 @@ def format(content):
     # Stuff like ?{ zf } gets translated by jasmin2tex to ?{zf
     # } (the ending } is on a new line)
     # This fixes it
+    # TODO: Fix this upstream (?)
     content = re.sub(
         r"\?\{(.*?)\}", lambda match: re.sub(r"\s+", " ", match.group(0)), content, flags=re.DOTALL
     )
@@ -80,14 +107,31 @@ if args.inplace is not None:
 elif args.output is not None:
     output_filename = args.output
 else:
-    raise ValueError("No output file specified")
+    output_filename = "__tmp__"  # we print to sdtdout instead
 
-result = subprocess.run(
-    ["jasmin2tex", input_filename, "-o", output_filename],
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.PIPE,
-    text=True,
-)
+include_path = args.I
+
+if include_path is None:
+    result = subprocess.run(
+        ["jasmin2tex", input_filename, "-o", output_filename],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+else:
+    jasminpath_env = include_path_to_jasminpath_env(include_path)
+    result = subprocess.run(
+        [
+            f"JASMINPATH={jasminpath_env}",
+            "jasmin2tex",
+            input_filename,
+            "-o",
+            print(jasminpath_env),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
 
 if result.returncode != 0:
     sys.stderr.write(f"jasmin2tex failed with return code {result.returncode}\n")
@@ -131,5 +175,9 @@ content = "\n".join([line.rstrip() for line in content.splitlines() if line.stri
 
 content = format(content)
 
-with open(output_filename, "w", encoding="utf-8") as file:
-    file.write(content)
+if output_filename == "__tmp__":
+    print(content)
+    os.remove("__tmp__")
+else:
+    with open(output_filename, "w", encoding="utf-8") as file:
+        file.write(content)
