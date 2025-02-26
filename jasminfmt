@@ -48,7 +48,7 @@ def include_path_to_jasminpath_env(include_path: list[str]) -> str:
 def format(content):
     content = content.replace("\{", "{")
     content = content.replace("\}", "}")
-    content = content.replace(" \jasminarrow{}", "->")
+    content = content.replace("\jasminarrow{}", "->")
 
     content = re.sub(r"\\jasminkw\{(.*?)\}", r"\1", content)
     content = re.sub(r"\\jasmindname\{(.*?)\}", r"\1", content)
