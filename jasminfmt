@@ -9,12 +9,16 @@ import sys
 import os
 import shutil
 
+# TODO: Config should be a namedtuple
+from collections import namedtuple
+
 # Default config: if the config file does not specify a value, we use this
 default_config = {
     "indent_size": 4,
     "indent_style": "space",
     "insert_final_newline": True,
     "split_fn_modifier": False,
+    "annot_square_brackets": False,
 }
 
 
@@ -58,7 +62,30 @@ def format(content):
     content = re.sub(r"\\jasminstorageclass\{(.*?)\}", r"\1", content)
     content = re.sub(r"\\jasmintype\{(.*?)\}", r"\1", content)
     content = re.sub(r"\\#\\jasminprimitive\{(.*?)\}", r"#\1", content)
-    content = re.sub(r"\\jasminannotation\{(.*?)\}", r"\1", content)
+
+    if annot_square_brackets:
+        # The regex is more complex here
+        # TODO: Only works for regex of one line (I think?)
+
+        # TODO: I think these two cases can be merged
+
+        # Works for annotations that end with }
+        # e.g. #sct="{ptr: public, val: public}"
+        # In this case, in latex, we have two }} ==> \#\jasminannotation{sct} = \jasminannotation{{ptr: public, val: public}}\\
+        content = re.sub(
+            r"#\\jasminannotation\{(.*?)\} = \\jasminannotation\{\{(.*?)\}\}",
+            r'#[\1 = "{\2}"]',
+            content,
+        )
+
+        # Works for annotation that do not end with }
+        # e.g. returnaddress="stack"
+        content = re.sub(
+            r"#\\jasminannotation\{(.*?)\} = \\jasminannotation\{(.*?)\}", r'#[\1 = "\2"]', content
+        )
+    else:
+        content = re.sub(r"#\\jasminannotation\{(.*?)\}", r"#\1", content)
+        content = re.sub(r"\\jasminannotation\{(.*)\}", r'"\1"', content)
 
     # Stuff like ?{ zf } gets translated by jasmin2tex to ?{zf
     # } (the ending } is on a new line)
@@ -89,12 +116,16 @@ def format(content):
     content = content.replace("?{  }", "?{}")
     content = content.replace("() =#", "() = #")
     content = content.replace(">>u=", ">>u =")
+    content = content.replace(
+        "\#", "#"
+    )  # for annotations like #[returnaddress="stack"] or #sct="{ptr: public, val: public}"
 
     if split_fn_modifier:
         content = content.replace("export ", "export\n")
         content = content.replace("inline fn", "inline\nfn")
 
     return content
+
 
 jasmin2tex_path = shutil.which("jasmin2tex")
 if jasmin2tex_path is None:
@@ -147,7 +178,6 @@ try:
         sys.stderr.write("=" * 100 + "\n")
         sys.exit(1)
 
-
     with open(output_filename, "r", encoding="utf-8") as file:
         content = file.read()
 
@@ -161,13 +191,18 @@ try:
             indent_size = default_config["indent_size"]
 
         try:
-            split_fn_modifier_str = config["split_fn_modifier"]
-            split_fn_modifier = split_fn_modifier_str.strip().lower() == "true"
+            split_fn_modifier = config["split_fn_modifier"].strip().lower() == "true"
         except KeyError:
-            split_fn_modifier = default_config["split_fn_modifier"]
+            split_fn_modifier = default_config["split_fn_modifier"].strip().lower() == "true"
+
+        try:
+            annot_square_brackets = config["annot_square_brackets"]
+        except KeyError:
+            annot_square_brackets = default_config["annot_square_brackets"]
     else:
         indent_size = default_config["indent_size"]
         split_fn_modifier = default_config["split_fn_modifier"]
+        annot_square_brackets = default_config["annot_square_brackets"]
 
     if args.debug:
         print(f"Indent size: {indent_size}")
@@ -177,7 +212,9 @@ try:
     content = content.replace("% The produced LATEX snippet is meant to be included in a", "")
     content = content.replace("% jasmincode environment provided by the jasmin package", "")
     content = content.replace("% defined in file:", "")
-    content = content.replace("% https://github.com/jasmin-lang/jasmin/wiki/resources/jasmin.sty", "")
+    content = content.replace(
+        "% https://github.com/jasmin-lang/jasmin/wiki/resources/jasmin.sty", ""
+    )
     content = content.replace("%", "")
 
     # remove the blank lines at the beginning

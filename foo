@@ -1,0 +1,5 @@
+#[sct] = \jasminannotation{{ptr: public, val: public}}
+fn f(reg ptr u64[1] x) -> reg ptr u64[1] {
+  x = #randombytes(x);
+  return x;
+}

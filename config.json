@@ -1,4 +1,5 @@
 {
     "indent_size": 2,
-    "split_fn_modifier": "True"
+    "split_fn_modifier": "True",
+    "annot_square_brackets": "True"
 }
