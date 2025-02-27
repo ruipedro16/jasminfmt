@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import os
+import shutil
 
 # Default config: if the config file does not specify a value, we use this
 default_config = {
@@ -24,12 +25,13 @@ def parse_arguments():
     parser.add_argument("-config", "--config", help="Config file")
     parser.add_argument("-i", "--inplace", help="Format the file inplace")
     parser.add_argument("-I", help="include path", action="append")
+    parser.add_argument("-d", "--debug", help="Enable debug prints", action="store_true")
     return parser.parse_args()
 
 
-def include_path_to_jasminpath_env(include_path: list[str]) -> str:
+def set_jasmin_path(include_path: list[str]):
     if include_path is None or len(include_path) == 0:
-        return ""
+        return
 
     r = []
 
@@ -42,13 +44,15 @@ def include_path_to_jasminpath_env(include_path: list[str]) -> str:
             print(parts)
             # print pq -I ta provavelmente mal
 
-    return ":".join(r)
+    env = os.environ
+    env["JASMINPATH"] = ":".join(r)
 
 
 def format(content):
     content = content.replace("\{", "{")
-    content = content.replace("\}", "}")
+    content = content.replace("\}", "}\n")
     content = content.replace("\jasminarrow{}", "->")
+    content = content.replace(">{}>", ">>")
 
     content = re.sub(r"\\jasminkw\{(.*?)\}", r"\1", content)
     content = re.sub(r"\\jasmindname\{(.*?)\}", r"\1", content)
@@ -85,6 +89,7 @@ def format(content):
 
     content = content.replace("?{  }", "?{}")
     content = content.replace("() =#", "() = #")
+    content = content.replace(">>u=", ">>u =")
 
     if split_fn_modifier:
         content = content.replace("export ", "export\n")
@@ -93,7 +98,15 @@ def format(content):
     return content
 
 
+jasmin2tex_path = shutil.which("jasmin2tex")
+if jasmin2tex_path is None:
+    sys.stderr.write("jasmin2tex not found in PATH\n")
+    sys.exit(1)
+
 args = parse_arguments()
+
+if args.debug:
+    print(f"Args: {args}")
 
 if args.inplace is not None:
     input_filename = args.inplace
@@ -109,35 +122,19 @@ elif args.output is not None:
 else:
     output_filename = "__tmp__"  # we print to sdtdout instead
 
-include_path = args.I
+set_jasmin_path(args.I)
 
-if include_path is None:
-    result = subprocess.run(
-        ["jasmin2tex", input_filename, "-o", output_filename],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-else:
-    jasminpath_env = include_path_to_jasminpath_env(include_path)
-    result = subprocess.run(
-        [
-            f"JASMINPATH={jasminpath_env}",
-            "jasmin2tex",
-            input_filename,
-            "-o",
-            print(jasminpath_env),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+result = subprocess.run(
+    ["jasmin2tex", input_filename, "-o", output_filename],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.PIPE,
+)
 
 if result.returncode != 0:
     sys.stderr.write(f"jasmin2tex failed with return code {result.returncode}\n")
     sys.stderr.write("=" * 100 + "\n")
     if result.stderr is not None:
-        sys.stderr.write(result.stderr)
+        sys.stderr.write(result.stderr.decode())
     sys.stderr.write("=" * 100 + "\n")
     sys.exit(1)
 
@@ -146,7 +143,7 @@ with open(output_filename, "r", encoding="utf-8") as file:
     content = file.read()
 
 if args.config is not None:
-    with open("config.json", "r", encoding="utf-8") as config_file:
+    with open(args.config, "r", encoding="utf-8") as config_file:
         config = json.load(config_file)
 
     try:
@@ -162,6 +159,10 @@ if args.config is not None:
 else:
     indent_size = default_config["indent_size"]
     split_fn_modifier = default_config["split_fn_modifier"]
+
+if args.debug:
+    print(f"Indent size: {indent_size}")
+    print(f"Split fn modifier: {split_fn_modifier}")
 
 # Remove the header
 content = content.replace("% The produced LATEX snippet is meant to be included in a", "")
