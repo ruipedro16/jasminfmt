@@ -40,9 +40,7 @@ def set_jasmin_path(include_path: list[str]):
         if len(parts) == 2:
             r.append(f"{parts[0]}={parts[1]}")
         else:
-            print(i)
-            print(parts)
-            # print pq -I ta provavelmente mal
+            raise ValueError(f"Invalid include path: {i}")
 
     env = os.environ
     env["JASMINPATH"] = ":".join(r)
@@ -53,6 +51,7 @@ def format(content):
     content = content.replace("\}", "}\n")
     content = content.replace("\jasminarrow{}", "->")
     content = content.replace(">{}>", ">>")
+    content = content.replace("<{}<", "<<")
 
     content = re.sub(r"\\jasminkw\{(.*?)\}", r"\1", content)
     content = re.sub(r"\\jasmindname\{(.*?)\}", r"\1", content)
@@ -115,11 +114,21 @@ elif args.input is not None:
 else:
     raise ValueError("No input file specified")
 
+# Make sure that the input file exists
+if not os.path.exists(input_filename):
+    sys.stderr.write(f"Input file '{input_filename}' does not exist\n")
+    sys.exit(1)
+
 if args.inplace is not None:
     output_filename = args.inplace
 elif args.output is not None:
     output_filename = args.output
 else:
+    # assert that the tmp file does not exist so we dont overwrite anything
+    # TODO: Handle this properly
+    if os.path.exists("__tmp__"):
+        raise FileExistsError("__tmp__ already exists in the current directory")
+
     output_filename = "__tmp__"  # we print to sdtdout instead
 
 set_jasmin_path(args.I)
@@ -134,7 +143,7 @@ if result.returncode != 0:
     sys.stderr.write(f"jasmin2tex failed with return code {result.returncode}\n")
     sys.stderr.write("=" * 100 + "\n")
     if result.stderr is not None:
-        sys.stderr.write(result.stderr.decode())
+        sys.stderr.write(result.stderr.decode("utf-8"))
     sys.stderr.write("=" * 100 + "\n")
     sys.exit(1)
 
